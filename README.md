@@ -4,6 +4,7 @@
 
 ## Folder Structure
 
+``` Bash
 RTOS_Network_Simulation/
 │
 ├── src/                          # Modular C source (development phase)
@@ -43,5 +44,6 @@ RTOS_Network_Simulation/
 │
 ├── .gitignore
 └── README.md
+```
 
 ---     

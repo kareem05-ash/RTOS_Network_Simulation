@@ -21,7 +21,9 @@ FREERTOS_SRC = \
     FreeRTOS/portable/MemMang/heap_3.c
 
 # Your Project Files (add more later)
-PROJECT_SRC = main.c src/utils/utils.c
+PROJECT_SRC = main.c \
+ src/utils/utils.c \
+ src/generator/packet_generator.c \
 
 TARGET = build/simulation
 

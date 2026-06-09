@@ -5,31 +5,57 @@ A multi-task simulation of a Stop-and-Wait (S&W) ARQ protocol over a noisy commu
 ---
 
 ## 📁 Project Structure
-├── src/
-│   ├── types.h            # Shared constants, packet/ACK struct definitions
-│   ├── utils.c            # RNG helpers, tick wrappers
-│   ├── packet_generator.c # Packet creation task
-│   ├── sender.c           # S&W sender logic with retransmission
-│   ├── comm_link.c        # Channel simulation (drop, delay)
-│   ├── receiver.c         # Receiver task + ACK generation
-│   ├── statistics.c       # Global atomic counters
-│   └── main.c             # Task spawning, queue/semaphore setup
-├── simulation_results/
-│   ├── raw_logs/          # Per-run stdout logs
-│   ├── csv/results.csv    # Parsed results table
-│   └── plots/             # Generated PNG figures
-├── parse_logs.py
-├── plot_throughput.py
-├── plot_retransmissions.py
-└── README.md
-
+``` 
+.
+├── README.md
+├── build
+│   └── simulation
+├── docs
+│   └── 91240568_91240572.docx
+├── main.c
+├── makefile
+├── scripts
+│   ├── parse_logs.py
+│   ├── plot_retransmissions.py
+│   ├── plot_throughput.py
+│   └── requirements.txt
+├── simulation_results
+│   ├── csv
+│   ├── plots
+│   └── raw_logs
+└── src
+    ├── common
+    │   ├── packet.c
+    │   ├── packet.h
+    │   └── types.h
+    ├── config
+    │   └── FreeRTOSConfig.h
+    ├── generator
+    │   ├── packet_generator.c
+    │   └── packet_generator.h
+    ├── link
+    │   ├── comm_link.c
+    │   └── comm_link.h
+    ├── receiver
+    │   ├── receiver.c
+    │   └── receiver.h
+    ├── sender
+    │   ├── sender.c
+    │   └── sender.h
+    ├── stats
+    │   ├── statistics.c
+    │   └── statistics.h
+    └── utils
+        ├── utils.c
+        └── utils.h
+```
 ---
 
 ## 🚀 Phases Overview
 
 ### Phase 0 — Setup & Shared Foundations
 - Configure Eclipse CDT Embedded with FreeRTOS emulation target.
-- Both members clone the repo and verify the build.
+- Clone the repo and verify the build.
 - Write `types.h`: all shared constants (`L1`, `L2`, `T1`, `T2`, `C`, `D`, `K`, `P_drop[]`, `P_ack`, `Tout[]`) and packet/ACK struct definitions.
 - Write `utils.c`: `rand_uniform_int()`, `rand_uniform_float()`, `get_tick_ms()` wrappers.
 - Agree on global queue and semaphore handles in a shared header.
@@ -40,7 +66,7 @@ A multi-task simulation of a Stop-and-Wait (S&W) ARQ protocol over a noisy commu
 
 ### Phase 1 — Core Components
 
-#### Member A — Sender Side
+#### Sender Side
 - **`packet_generator.c`** — Task that creates packets with correct headers, dynamically allocated, enqueued to `packet_queue`.
 - **`sender.c`** — Full S&W logic:
   - Dequeue → TX buffer → start FreeRTOS software timer (`Tout`).
@@ -48,7 +74,7 @@ A multi-task simulation of a Stop-and-Wait (S&W) ARQ protocol over a noisy commu
   - On ACK received: validate `seq_num`, `free()` packet, advance.
   - Timer callback posts event to sender task via queue (no logic in callback directly).
 
-#### Member B — Link + Receiver Side
+#### Link + Receiver Side
 - **`comm_link.c`** — Simulates the channel in both directions:
   - Forward path: apply `P_drop`, compute delay = `D + (L×8)/C` ms, enqueue to `rx_queue`.
   - ACK return path: apply `P_ack`, compute delay, enqueue to `ack_queue`.
@@ -80,8 +106,6 @@ A multi-task simulation of a Stop-and-Wait (S&W) ARQ protocol over a noisy commu
 ### Phase 3 — Experiments & Data Collection
 - Run all **16 combinations**: 4 values of `P_drop` × 4 values of `Tout`.
 - Redirect stdout to log files:
-simulation_results/raw_logs/pdrop_0.01_tout_150.txt
-simulation_results/raw_logs/pdrop_0.01_tout_175.txt
 ...
 - Each run prints a result summary line:
 RESULT: Pdrop=X Tout=Y ThroughputBytes=Z AvgTransmissions=W DroppedAfter4=V Duration_ms=U
@@ -116,7 +140,6 @@ Report follows the provided `.docx` template (max 5 pages):
 - Name files: `StudentID1_StudentID2.docx` and `main.c`.
 - Zip with relative paths and verify structure:
 main.c
-StudentID1_StudentID2.docx
 
 ---
 

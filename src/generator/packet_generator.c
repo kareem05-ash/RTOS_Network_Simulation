@@ -9,6 +9,7 @@
 #include "packet_generator.h"
 #include "types.h"
 #include "utils.h"
+#include "statistics.h"
 
 void vPacketGeneratorTask(void *pvParameters){
     (void)pvParameters;
@@ -44,10 +45,11 @@ void vPacketGeneratorTask(void *pvParameters){
             free(pkt);
         }
         else
-        {
+        {   
             printf("[GENERATOR] Created packet seq=%lu | len=%u bytes\n",
                    (unsigned long) seq_num, total_length);
             seq_num++;
+             stats_packet_generated();
         }
 
         // Wait random time between T1 and T2 ms    
@@ -55,4 +57,4 @@ void vPacketGeneratorTask(void *pvParameters){
         vTaskDelay(pdMS_TO_TICKS(delay_ms));
 
     }
-}
+}   

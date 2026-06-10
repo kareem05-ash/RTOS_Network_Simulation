@@ -44,27 +44,25 @@ run: $(TARGET)
 ZIP_NAME := RTOS_Network_Simulation.zip
 
 package:
-        @command -v zip >/dev/null 2>&1 || { \
-                echo "Error: zip is not installed. Install it via:"; \
-                echo "  sudo apt install zip"; \
-                exit 1; \
-        }
+	@command -v zip >/dev/null 2>&1 || { \
+		echo "Error: zip is not installed. Install it via:"; \
+		echo "  sudo apt install zip"; \
+		exit 1; \
+	}
 
-        @echo "Creating $(ZIP_NAME)..."
+	@echo "Creating $(ZIP_NAME)..."
 
-        @if [ -f $(ZIP_NAME) ]; then \
-                echo "Removing existing $(ZIP_NAME)"; \
-                rm -f $(ZIP_NAME); \
-        fi
+	@if [ -f $(ZIP_NAME) ]; then \
+		echo "Removing existing $(ZIP_NAME)"; \
+		rm -f $(ZIP_NAME); \
+	fi
 
-        @zip -r $(ZIP_NAME) ./ \
-                -x "*__pycache__*" \
-                   "build/*" \
-                   "docs/*" \
-                   "imgs/*" \
-                   ".vscode/*" \
-                   ".git/*"
+	@zip -r $(ZIP_NAME) ./ \
+		-x "*__pycache__*" \
+		   "build/*" \
+		   "docs/*" \
+		   "imgs/*" \
+		   ".vscode/*" \
+		   ".git/*"
 
-        @echo "Done: $(ZIP_NAME) created successfully"
-
-.PHONY: all clean run package
+	@echo "Done: $(ZIP_NAME) created successfully"

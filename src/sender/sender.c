@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -19,14 +20,14 @@ void vSenderTask(void *pvParameters)
 
     for(;;)
     {
-        //  Get next packet from generator
+        // 1. Get next packet from generator — sender OWNS this
         xQueueReceive(packet_queue, &tx_buffer, portMAX_DELAY);
 
         printf("[SENDER] Got packet seq=%lu | len=%u from queue\n",
                (unsigned long) tx_buffer->seq_num, tx_buffer->length);
 
-        uint8_t attempts  = 0;
-        uint8_t done      = 0;
+        uint8_t attempts = 0;
+        uint8_t done     = 0;
 
         while(!done)
         {
@@ -36,12 +37,20 @@ void vSenderTask(void *pvParameters)
 
             stats_transmission_attempt();
 
-            //  Send packet pointer to link
-            Packet_t *send_ptr = tx_buffer;
-            xQueueSend(tx_link_queue, &send_ptr, portMAX_DELAY);
+            // 2. Make a COPY of the packet for this transmission
+            // Link and receiver will own and free this copy
+            Packet_t *tx_copy = (Packet_t *) malloc(tx_buffer->length);
+            if(tx_copy == NULL)
+            {
+                printf("[SENDER] ERROR: malloc failed for copy\n");
+                continue;
+            }
+            memcpy(tx_copy, tx_buffer, tx_buffer->length);
 
-            //  Wait for ACK with Tout timeout
-            // xQueueReceive blocks until ACK arrives OR timeout expires
+            // 3. Send the COPY to link — not the original
+            xQueueSend(tx_link_queue, &tx_copy, portMAX_DELAY);
+
+            // 4. Wait for ACK with Tout timeout
             ACK_t *ack = NULL;
             BaseType_t got_ack = xQueueReceive(
                 ack_rx_queue,
@@ -53,25 +62,37 @@ void vSenderTask(void *pvParameters)
             {
                 if(ack->ack_seq_num == tx_buffer->seq_num)
                 {
-                    free(ack);       // sender frees ACK
-                    free(tx_buffer); // sender frees packet ✅
+                    printf("[SENDER] ACK received for seq=%lu ✅\n",
+                           (unsigned long) tx_buffer->seq_num);
+                    free(ack);
+                    free(tx_buffer);  // sender frees original ✅
                     tx_buffer = NULL;
                     done = 1;
                 }
                 else
                 {
-                    free(ack);       // wrong ACK — discard it
-                    attempts--;
+                    printf("[SENDER] Old ACK seq=%lu ignoring\n",
+                           (unsigned long) ack->ack_seq_num);
+                    free(ack);
+                    attempts--;  // don't count this as a real attempt
                 }
             }
             else
             {
+                // Timeout
+                printf("[SENDER] Timeout for seq=%lu | attempt=%u\n",
+                       (unsigned long) tx_buffer->seq_num, attempts);
+
                 if(attempts >= MAX_RETRANSMISSIONS)
                 {
-                    free(tx_buffer); // sender frees after giving up ✅
+                    printf("[SENDER] Max attempts for seq=%lu — DISCARDING ❌\n",
+                           (unsigned long) tx_buffer->seq_num);
+                    stats_packet_dropped_4tx();
+                    free(tx_buffer);  // sender frees original ✅
                     tx_buffer = NULL;
                     done = 1;
                 }
+                // else loop → retransmit with fresh copy
             }
         }
     }

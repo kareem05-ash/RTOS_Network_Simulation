@@ -91,9 +91,10 @@ void stats_print_results(void)
     // ── Calculate average transmissions per packet ──
     // total transmissions / total packets generated
     float avg_tx = 0.0f;
-    if(stat_packets_generated > 0)
+   uint32_t packets_attempted = stat_packets_received + stat_packets_dropped_4tx;
+    if(packets_attempted > 0)
     {
-        avg_tx = (float) stat_total_transmissions / (float) stat_packets_generated;
+        avg_tx = (float) stat_total_transmissions / (float) packets_attempted;
     }
 
     printf("\n");

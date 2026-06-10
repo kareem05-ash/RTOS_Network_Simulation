@@ -33,7 +33,9 @@ void vPacketGeneratorTask(void *pvParameters){
         pkt->dest_id    = NODE_2_ID;
         pkt->length     = total_length;
         pkt->seq_num    = seq_num;
-
+        
+        seq_num++;
+        stats_packet_generated();
         // Fill payload with dummy data
         memset(pkt->payload, 0xAB, payload_size);
 
@@ -48,8 +50,6 @@ void vPacketGeneratorTask(void *pvParameters){
         {   
             printf("[GENERATOR] Created packet seq=%lu | len=%u bytes\n",
                    (unsigned long) seq_num, total_length);
-            seq_num++;
-             stats_packet_generated();
         }
 
         // Wait random time between T1 and T2 ms    

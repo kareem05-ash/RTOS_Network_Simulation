@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -8,82 +9,107 @@
 #include "receiver.h"
 #include "types.h"
 #include "utils.h"
-#include"statistics.h"
+#include "statistics.h"
 
 // ─────────────────────────────────────────
-// Receiver Task
-// Receives packets from link (rx_queue)
-// Sends ACK back through link (ack_tx_queue)
-// Counts packets until TARGET_PACKETS reached
+// Track seen sequence numbers to avoid
+// counting duplicates from retransmissions
+// Max unique packets we expect = TARGET_PACKETS + buffer
 // ─────────────────────────────────────────
+#define MAX_SEQ_TRACK   10000
+
+static uint8_t seen_seq[MAX_SEQ_TRACK];  // 1 = already received this seq
+
 void vReceiverTask(void *pvParameters)
 {
     (void) pvParameters;
 
     printf("[RECEIVER] Task started\n");
 
-    // ── Counter ──
+    // Clear the seen table
+    memset(seen_seq, 0, sizeof(seen_seq));
+
+    // Record start time on first packet
     stat_start_tick = (uint32_t) xTaskGetTickCount();
 
     Packet_t *pkt = NULL;
 
     for(;;)
     {
-        // Wait for a packet from the link ──
+        // 1. Wait for packet from link
         if(xQueueReceive(rx_queue, &pkt, portMAX_DELAY) != pdPASS)
-        {
             continue;
-        }
 
-        printf("[RECEIVER] Got packet seq=%lu | len=%u bytes\n",
-               (unsigned long) pkt->seq_num, pkt->length);
+        uint32_t seq = pkt->seq_num;
 
-        uint16_t payload_bytes = pkt->length - HEADER_SIZE_BYTES;
-        stats_packet_received(payload_bytes);   
-
-    printf("[RECEIVER] Total received = %lu / %d packets\n",
-       (unsigned long) stat_packets_received, TARGET_PACKETS);
-
-        // Build and send ACK back ──
-        ACK_t *ack = (ACK_t *) malloc(sizeof(ACK_t));
-
-        if(ack == NULL)
+        // 2. Check if this is a duplicate
+        if(seq < MAX_SEQ_TRACK && seen_seq[seq] == 1)
         {
-            printf("[RECEIVER] ERROR: malloc failed for ACK seq=%lu\n",
-                   (unsigned long) pkt->seq_num);
+            printf("[RECEIVER] DUPLICATE seq=%lu — ignoring\n",
+                   (unsigned long) seq);
 
-            // Free packet and continue — can't send ACK
+            // Still send ACK so sender stops retransmitting
+            ACK_t *ack = (ACK_t *) malloc(sizeof(ACK_t));
+            if(ack != NULL)
+            {
+                ack->ack_seq_num = seq;
+                ack->sender_id   = NODE_2_ID;
+                ack->dest_id     = NODE_1_ID;
+                xQueueSend(ack_tx_queue, &ack, portMAX_DELAY);
+            }
+
+            // Free the copy — not counted
             free(pkt);
             pkt = NULL;
             continue;
         }
 
-        // Fill ACK fields
-        ack->ack_seq_num = pkt->seq_num;  // ACKing this sequence number
-        ack->sender_id   = NODE_2_ID;     // ACK sent by Node 2
-        ack->dest_id     = NODE_1_ID;     // ACK going to Node 1
+        // 3. First time seeing this packet — mark as seen
+        if(seq < MAX_SEQ_TRACK)
+            seen_seq[seq] = 1;
 
-        printf("[RECEIVER] Sending ACK for seq=%lu\n",
-               (unsigned long) ack->ack_seq_num);
+        // 4. Count bytes (payload only)
+        uint16_t payload_bytes = pkt->length - HEADER_SIZE_BYTES;
+        stats_packet_received(payload_bytes);
 
-        // Send ACK to link ACK path
-        if(xQueueSend(ack_tx_queue, &ack, portMAX_DELAY) != pdPASS)
+        printf("[RECEIVER] Got packet seq=%lu | len=%u | unique=%lu / %d\n",
+               (unsigned long) seq,
+               pkt->length,
+               (unsigned long) stat_packets_received,
+               TARGET_PACKETS);
+
+        // 5. Send ACK
+        ACK_t *ack = (ACK_t *) malloc(sizeof(ACK_t));
+        if(ack == NULL)
         {
-            printf("[RECEIVER] ERROR: ack_tx_queue full — ACK seq=%lu lost\n",
-                   (unsigned long) ack->ack_seq_num);
-            free(ack);
-            ack = NULL;
+            printf("[RECEIVER] ERROR: malloc failed for ACK\n");
+            free(pkt);
+            pkt = NULL;
+            continue;
         }
 
-        // Free the received packet ──
+        ack->ack_seq_num = seq;
+        ack->sender_id   = NODE_2_ID;
+        ack->dest_id     = NODE_1_ID;
+
+        printf("[RECEIVER] Sending ACK for seq=%lu\n", (unsigned long) seq);
+
+        if(xQueueSend(ack_tx_queue, &ack, portMAX_DELAY) != pdPASS)
+        {
+            printf("[RECEIVER] ERROR: ack_tx_queue full\n");
+            free(ack);
+        }
+
+        // 6. Free the copy
+        free(pkt);
         pkt = NULL;
 
-        // Check if simulation is done ──
-       if(stat_packets_received >= TARGET_PACKETS)
-{
-    stat_end_tick = (uint32_t) xTaskGetTickCount();
-    stats_print_results();
-    vTaskEndScheduler();
-}
+        // 7. Check if simulation is done
+        if(stat_packets_received >= TARGET_PACKETS)
+        {
+            stat_end_tick = (uint32_t) xTaskGetTickCount();
+            stats_print_results();
+            vTaskEndScheduler();
+        }
     }
 }

@@ -5,7 +5,7 @@ All queues created OK
 All tasks spawned — starting scheduler...
 [LINK_ACK] Task started
 [LINK_FWD] Task started
-[SENDER] task started
+[SENDER] task started 
 [RECEIVER] Task started
 GENERATOR task started
 [SENDER] Got packet seq=0 | len=986 from queue

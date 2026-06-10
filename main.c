@@ -1,55 +1,70 @@
 #include <stdio.h>
+#include <stdlib.h>
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "timers.h"
-#include "src/common/types.h"
-#include "src/utils/utils.h"
-#include "src/generator/Packet_generator.h"
 
-//---------initalize all Queues to NULL -------
-QueueHandle_t packet_queue      = NULL;
-QueueHandle_t tx_link_queue     = NULL;
-QueueHandle_t rx_queue          = NULL;
-QueueHandle_t ack_tx_queue      = NULL;
-QueueHandle_t ack_rx_queue      = NULL;
+#include "types.h"
+#include "utils.h"
+#include "src/stats/statistics.h"
+#include "packet_generator.h"
+#include "sender.h"
+#include "comm_link.h"
+#include "receiver.h"
 
-int main(void){
+// ── Global Queue Handles ──
+QueueHandle_t packet_queue   = NULL;
+QueueHandle_t tx_link_queue  = NULL;
+QueueHandle_t rx_queue       = NULL;
+QueueHandle_t ack_tx_queue   = NULL;
+QueueHandle_t ack_rx_queue   = NULL;
 
+int main(void)
+{
     printf("=== RTOS Network Simulation ===\n");
     printf("Active Config: P_drop=%.2f | Tout=%d ms\n",
-       ACTIVE_P_DROP, ACTIVE_TOUT_MS);
+           ACTIVE_P_DROP, ACTIVE_TOUT_MS);
 
-// -------- create all Queues --------------------------
-packet_queue    = xQueueCreate(PACKET_QUEUE_SIZE, sizeof(Packet_t *));
-tx_link_queue   = xQueueCreate(LINK_QUEUE_SIZE,   sizeof(Packet_t *));
-rx_queue        = xQueueCreate(LINK_QUEUE_SIZE,   sizeof(Packet_t *));
-ack_tx_queue    = xQueueCreate(ACK_QUEUE_SIZE,    sizeof(ACK_t *));
-ack_rx_queue    = xQueueCreate(ACK_QUEUE_SIZE,    sizeof(ACK_t *));
+    // ── Initialize statistics ──
+    stats_init();
 
-// -------- verify all Queues created successfully -----
-configASSERT(packet_queue   !=NULL);
-configASSERT(tx_link_queue  !=NULL);
-configASSERT(rx_queue       !=NULL);
-configASSERT(ack_tx_queue   !=NULL);
-configASSERT(ack_rx_queue   !=NULL);
+    // ── Create all queues ──
+    packet_queue   = xQueueCreate(PACKET_QUEUE_SIZE, sizeof(Packet_t *));
+    tx_link_queue  = xQueueCreate(LINK_QUEUE_SIZE,   sizeof(Packet_t *));
+    rx_queue       = xQueueCreate(LINK_QUEUE_SIZE,   sizeof(Packet_t *));
+    ack_tx_queue   = xQueueCreate(ACK_QUEUE_SIZE,    sizeof(ACK_t *));
+    ack_rx_queue   = xQueueCreate(ACK_QUEUE_SIZE,    sizeof(ACK_t *));
 
-printf("All queues created OK\n");
-printf("sizeof(Packet_t header) = %lu bytes\n", sizeof(Packet_t));
-printf("sizeof(ACK_t)           = %lu bytes\n", sizeof(ACK_t));
+    configASSERT(packet_queue  != NULL);
+    configASSERT(tx_link_queue != NULL);
+    configASSERT(rx_queue      != NULL);
+    configASSERT(ack_tx_queue  != NULL);
+    configASSERT(ack_rx_queue  != NULL);
 
-//------- Spawn Packet Generator Task--------------------
-    xTaskCreate(
-        vPacketGeneratorTask,   /* function        */
-        "Generator",            /* name for debug  */
-        1024,                   /* stack size      */
-        NULL,                   /* parameters      */
-        PRIORITY_GENERATOR,     /* priority        */
-        NULL                    /* handle          */
-    );
+    printf("All queues created OK\n");
 
-    printf("Tasks spawned — starting scheduler...\n");
+    // ── Spawn all tasks ──
+    xTaskCreate(vPacketGeneratorTask, "Generator",   1024,
+                NULL, PRIORITY_GENERATOR,  NULL);
 
-vTaskStartScheduler();
-        return 0;
+    xTaskCreate(vSenderTask,          "Sender",      2048,
+                NULL, PRIORITY_SENDER,     NULL);
+
+    xTaskCreate(vCommLinkForwardTask, "LinkFwd",     2048,
+                NULL, PRIORITY_LINK,       NULL);
+
+    xTaskCreate(vCommLinkACKTask,     "LinkACK",     2048,
+                NULL, PRIORITY_LINK,       NULL);
+
+    xTaskCreate(vReceiverTask,        "Receiver",    2048,
+                NULL, PRIORITY_RECEIVER,   NULL);
+
+    printf("All tasks spawned — starting scheduler...\n");
+
+    // ── Start FreeRTOS Scheduler ──
+    vTaskStartScheduler();
+
+    return 0;
 }

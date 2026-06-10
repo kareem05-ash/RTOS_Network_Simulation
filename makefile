@@ -1,40 +1,48 @@
 CC = gcc
-CFLAGS = -Wall -g -O0 -D posix \
-         -I. \
-         -I./FreeRTOS/include \
-         -I./FreeRTOS/portable/ThirdParty/GCC/Posix \
-         -I./src/config \
-         -I./src/common \
-         -I./src/utils
+CFLAGS  = -Wall -g -O0 -D posix \
+          -I. \
+          -I./FreeRTOS/include \
+          -I./FreeRTOS/portable/ThirdParty/GCC/Posix \
+          -I./src/config \
+          -I./src/common \
+          -I./src/utils \
+          -I./src/stats \
+          -I./src/generator \
+          -I./src/sender \
+          -I./src/receiver \
+          -I./src/link
 
 # FreeRTOS Kernel + POSIX Port
 FREERTOS_SRC = \
-    FreeRTOS/tasks.c \
-    FreeRTOS/queue.c \
-    FreeRTOS/timers.c \
-    FreeRTOS/list.c \
-    FreeRTOS/event_groups.c \
-    FreeRTOS/croutine.c \
-    FreeRTOS/stream_buffer.c \
-    FreeRTOS/portable/ThirdParty/GCC/Posix/port.c \
-    FreeRTOS/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c \
-    FreeRTOS/portable/MemMang/heap_3.c
+	FreeRTOS/tasks.c \
+	FreeRTOS/queue.c \
+	FreeRTOS/timers.c \
+	FreeRTOS/list.c \
+	FreeRTOS/event_groups.c \
+	FreeRTOS/croutine.c \
+	FreeRTOS/stream_buffer.c \
+	FreeRTOS/portable/ThirdParty/GCC/Posix/port.c \
+	FreeRTOS/portable/ThirdParty/GCC/Posix/utils/wait_for_event.c \
+	FreeRTOS/portable/MemMang/heap_3.c
 
 # Your Project Files (add more later)
-PROJECT_SRC = main.c \
- src/utils/utils.c \
- src/generator/packet_generator.c \
+PROJECT_SRC = \
+	main.c \
+	src/utils/utils.c \
+	src/generator/packet_generator.c \
+	src/sender/sender.c \
+	src/link/comm_link.c \
+	src/receiver/receiver.c \
+	src/stats/statistics.c
 
 TARGET = build/simulation
 
-all: $(TARGET)
-
-$(TARGET): $(FREERTOS_SRC) $(PROJECT_SRC)
+all:
 	mkdir -p build
-	$(CC) $(CFLAGS) $^ -o $@ -lpthread -lrt
+	$(CC) $(CFLAGS) $(FREERTOS_SRC) $(PROJECT_SRC) -o build/simulation -lpthread -lrt
 
 clean:
-	rm -rf build/
+	rm -f build/simulation
 
 run: $(TARGET)
 	./$(TARGET)

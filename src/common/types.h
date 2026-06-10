@@ -42,7 +42,7 @@
 #define TOUT_4_MS           225
 
 // ── ACTIVE CONFIG (change these per run) ──
-#define ACTIVE_P_DROP       0.01f
+#define ACTIVE_P_DROP       0.08f
 #define ACTIVE_TOUT_MS      225
 
 // Simulation target

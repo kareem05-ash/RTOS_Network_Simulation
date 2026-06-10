@@ -1,3 +1,5 @@
 *.zip
 build/*
-FreeRTOS-Kernel
+FreeRTOS-Kernel/
+.vscode/
+FreeRTOS

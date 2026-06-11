@@ -3,3 +3,6 @@ build/*
 FreeRTOS-Kernel/
 .vscode/
 FreeRTOS
+.venv/
+simulation_results/raw_logs/
+simulation_results/csv/

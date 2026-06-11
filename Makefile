@@ -54,7 +54,7 @@ TARGET      = build/simulation
 
 .PHONY: all clean run help install_req \
         parse_logs plot_throughput plot_retransmissions \
-        plot_all run_pipeline
+        plot_all run_pipeline package
 
 # ─────────────────────────────────────────────────────────────────────────────
 # BUILD TARGETS
@@ -133,6 +133,40 @@ plot_all: parse_logs plot_throughput plot_retransmissions
 	@echo "================================================"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PACKAGING
+# ─────────────────────────────────────────────────────────────────────────────
+
+ZIP_NAME := RTOS_Network_Simulation.zip
+
+package:
+		@command -v zip >/dev/null 2>&1 || { \
+                echo "Error: zip is not installed. Install it via:"; \
+                echo "  sudo apt install zip"; \
+                exit 1; \
+        }
+
+		@echo "Creating $(ZIP_NAME)..."
+
+		@if [ -f $(ZIP_NAME) ]; then \
+                echo "Removing existing $(ZIP_NAME)"; \
+                rm -f $(ZIP_NAME); \
+		fi
+
+		@zip -r $(ZIP_NAME) ./ \
+                -x "*__pycache__*" \
+                   "build/*" \
+                   "docs/*" \
+                   "imgs/*" \
+                   ".vscode/*" \
+                   ".git/*"  \
+				   "FreeRTOS/*" \
+				   ".venv/*" \
+				   "simulation_results/*" \
+				   ".gitignore" \
+
+        @echo "Done: $(ZIP_NAME) created successfully"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # HELP
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -147,6 +181,7 @@ help:
 	@printf "  %-28s %s\n" "make clean"                "Delete the compiled binary"
 	@echo "  ─────────────────────────────────────────────────────────────────"
 	@printf "  %-28s %s\n" "make install_req"          "Create .venv/ and pip install scripts/requirements.txt"
+	@printf "  %-28s %s\n" "make package"          	   "Create a zip file that contains {scripts/, src/, Makefile, main.c, README.md, run_experiments.sh}"
 	@echo "  ─────────────────────────────────────────────────────────────────"
 	@printf "  %-28s %s\n" "make run_pipeline"         "Build (if needed) then run all 16 combos via run_experiments.sh"
 	@printf "  %-28s %s\n" "make parse_logs"           "Parse raw_logs/*.txt  →  csv/results.csv"
